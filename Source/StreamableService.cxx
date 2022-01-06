@@ -25,9 +25,9 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
   QString videoMimeType =
       mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
 
-  if (QStringList{"video/mp4", "video/x-matroska"}.contains(videoMimeType)) {
+  if (!QStringList{"video/mp4", "video/x-matroska"}.contains(videoMimeType)) {
     emit this->videoUploadError(
-        videoFile, "Unsupported file type! Streamable only accepts MP4!");
+        videoFile, "Unsupported file type! Streamable only accepts MKV/MP4!");
     return;
   }
 
@@ -45,7 +45,7 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
   QNetworkReply *generateResp = nam->get(QNetworkRequest(shortcodeUrl));
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, &awsRegion, generateResp, nam, videoFile, &videoFileInfo,
+      [this, awsRegion, generateResp, nam, videoFile, videoFileInfo,
        videoTitle]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, generateResp->errorString());
@@ -73,15 +73,16 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
         videoMetaJson["title"] =
             videoTitle.isEmpty() ? videoFileInfo.baseName() : videoTitle;
         videoMetaJson["upload_source"] = "web";
+        QNetworkRequest updateMetaReq(updateMetaUrl);
+        updateMetaReq.setHeader(QNetworkRequest::ContentTypeHeader,
+                                "application/json");
         QNetworkReply *updateMetaResp = nam->put(
-            QNetworkRequest(updateMetaUrl),
+            updateMetaReq,
             QJsonDocument(videoMetaJson).toJson(QJsonDocument::Compact));
-
         connect(
             updateMetaResp, &QNetworkReply::finished, this,
-            [this, &accessKeyId, &awsRegion, nam, &secretAccessKey,
-             &sessionToken, &shortCode, &transcoderToken, updateMetaResp,
-             videoFile]() {
+            [this, accessKeyId, awsRegion, nam, secretAccessKey, sessionToken,
+             shortCode, transcoderToken, updateMetaResp, videoFile]() {
               if (updateMetaResp->error() != QNetworkReply::NoError) {
                 emit this->videoUploadError(videoFile,
                                             updateMetaResp->errorString());
@@ -100,7 +101,6 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
               QCryptographicHash sha256Hash(QCryptographicHash::Sha256);
               videoFile->open(QFile::ReadOnly);
               sha256Hash.addData(videoFile);
-              videoFile->deleteLater();
               QString payloadHash = sha256Hash.result().toHex().toLower();
               uploadReq.setRawHeader("x-amz-content-sha256",
                                      payloadHash.toUtf8());
@@ -179,6 +179,7 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
                   ",Signature=" + signature;
 
               uploadReq.setRawHeader("Authorization", authorization.toUtf8());
+              videoFile->seek(0);
               QNetworkReply *uploadResp = nam->put(uploadReq, videoFile);
 
               connect(uploadResp, &QNetworkReply::uploadProgress, this,
@@ -189,7 +190,7 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
 
               connect(
                   uploadResp, &QNetworkReply::finished, this,
-                  [this, nam, &shortCode, &transcoderToken, uploadResp,
+                  [this, nam, shortCode, transcoderToken, uploadResp,
                    videoFile]() {
                     if (uploadResp->error() != QNetworkReply::NoError) {
                       emit this->videoUploadError(videoFile,
@@ -214,10 +215,10 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
                                  "https://streamables-upload.s3.amazonaws.com/"
                                  "upload/" +
                                      shortCode}})
-                            .toJson());
+                            .toJson(QJsonDocument::Compact));
 
                     connect(transcodeResp, &QNetworkReply::finished, this,
-                            [this, &shortCode, transcodeResp, videoFile]() {
+                            [this, shortCode, transcodeResp, videoFile]() {
                               if (transcodeResp->error() !=
                                   QNetworkReply::NoError) {
                                 emit this->videoUploadError(
@@ -234,6 +235,8 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
                   });
               connect(uploadResp, &QNetworkReply::finished, uploadResp,
                       &QNetworkReply::deleteLater);
+              connect(uploadResp, &QNetworkReply::finished, videoFile,
+                      &QFile::deleteLater);
             });
         connect(updateMetaResp, &QNetworkReply::finished, updateMetaResp,
                 &QNetworkReply::deleteLater);
