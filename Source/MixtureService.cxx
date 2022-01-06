@@ -41,62 +41,62 @@ void Mixture::uploadVideo(QFile *videoFile) {
   QNetworkReply *homePageResp = m_nam->get(QNetworkRequest(QUrl(baseUrl)));
   QNetworkAccessManager *nam = m_nam;
 
-  connect(
-      homePageResp, &QNetworkReply::finished, this,
-      [this, homePageResp, nam, videoFile, &videoFileInfo, videoMimeType]() {
-        if (homePageResp->error() != QNetworkReply::NoError) {
-          emit this->videoUploadError(videoFile, homePageResp->errorString());
-          return;
-        }
+  connect(homePageResp, &QNetworkReply::finished, this,
+          [this, homePageResp, nam, videoFile, videoFileInfo, videoMimeType]() {
+            if (homePageResp->error() != QNetworkReply::NoError) {
+              emit this->videoUploadError(videoFile,
+                                          homePageResp->errorString());
+              return;
+            }
 
-        QString linkId = parseLinkId(QString(homePageResp->readAll()));
+            QString linkId = parseLinkId(QString(homePageResp->readAll()));
 
-        QHttpMultiPart *uploadMultiPart =
-            new QHttpMultiPart(QHttpMultiPart::FormDataType);
+            QHttpMultiPart *uploadMultiPart =
+                new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
-        QHttpPart videoFilePart;
-        videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
-                                QVariant(videoMimeType));
-        videoFilePart.setHeader(
-            QNetworkRequest::ContentDispositionHeader,
-            QVariant("form-data; name=\"upload_file\"; filename=\"" +
-                     videoFileInfo.fileName() + "\""));
-        videoFile->open(QIODevice::ReadOnly);
-        videoFilePart.setBodyDevice(videoFile);
-        videoFile->setParent(uploadMultiPart);
-        uploadMultiPart->append(videoFilePart);
+            QHttpPart videoFilePart;
+            videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
+                                    QVariant(videoMimeType));
+            videoFilePart.setHeader(
+                QNetworkRequest::ContentDispositionHeader,
+                QVariant("form-data; name=\"upload_file\"; filename=\"" +
+                         videoFileInfo.fileName() + "\""));
+            videoFile->open(QIODevice::ReadOnly);
+            videoFilePart.setBodyDevice(videoFile);
+            videoFile->setParent(uploadMultiPart);
+            uploadMultiPart->append(videoFilePart);
 
-        QHttpPart linkIdPart;
-        linkIdPart.setHeader(QNetworkRequest::ContentDispositionHeader,
-                             QVariant("form-data; name=\"link_id\""));
-        linkIdPart.setBody(linkId.toUtf8());
-        uploadMultiPart->append(linkIdPart);
+            QHttpPart linkIdPart;
+            linkIdPart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                                 QVariant("form-data; name=\"link_id\""));
+            linkIdPart.setBody(linkId.toUtf8());
+            uploadMultiPart->append(linkIdPart);
 
-        QNetworkReply *uploadResp =
-            nam->post(QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
-                      uploadMultiPart);
+            QNetworkReply *uploadResp =
+                nam->post(QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
+                          uploadMultiPart);
 
-        connect(uploadResp, &QNetworkReply::uploadProgress, this,
-                [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
-                  emit this->videoUploadProgress(videoFile, bytesSent,
-                                                 bytesTotal);
-                });
-        connect(uploadResp, &QNetworkReply::finished, this,
-                [this, linkId, uploadResp, videoFile]() {
-                  if (uploadResp->error() != QNetworkReply::NoError) {
-                    emit this->videoUploadError(videoFile,
-                                                uploadResp->errorString());
-                    return;
-                  }
+            connect(uploadResp, &QNetworkReply::uploadProgress, this,
+                    [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
+                      emit this->videoUploadProgress(videoFile, bytesSent,
+                                                     bytesTotal);
+                    });
+            connect(uploadResp, &QNetworkReply::finished, this,
+                    [this, linkId, uploadResp, videoFile]() {
+                      if (uploadResp->error() != QNetworkReply::NoError) {
+                        emit this->videoUploadError(videoFile,
+                                                    uploadResp->errorString());
+                        return;
+                      }
 
-                  emit this->videoUploaded(videoFile, linkId,
-                                           Mixture::baseUrl + "/v/" + linkId);
-                });
-        connect(uploadResp, &QNetworkReply::finished, uploadMultiPart,
-                &QHttpMultiPart::deleteLater);
-        connect(uploadResp, &QNetworkReply::finished, uploadResp,
-                &QNetworkReply::deleteLater);
-      });
+                      emit this->videoUploaded(
+                          videoFile, linkId, Mixture::baseUrl + "/v/" + linkId);
+                    });
+            connect(uploadResp, &QNetworkReply::finished, uploadMultiPart,
+                    &QHttpMultiPart::deleteLater);
+            connect(uploadResp, &QNetworkReply::finished, uploadResp,
+                    &QNetworkReply::deleteLater);
+          });
   connect(homePageResp, &QNetworkReply::finished, homePageResp,
           &QNetworkReply::deleteLater);
 }

@@ -35,7 +35,7 @@ void Streamff::uploadVideo(QFile *videoFile) {
 
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, generateResp, nam, videoFile, &videoFileInfo, videoMimeType]() {
+      [this, generateResp, nam, videoFile, videoFileInfo, videoMimeType]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, generateResp->errorString());
           return;

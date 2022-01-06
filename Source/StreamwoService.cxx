@@ -43,7 +43,7 @@ void Streamwo::uploadVideo(QFile *videoFile) {
 
   connect(
       homePageResp, &QNetworkReply::finished, this,
-      [this, homePageResp, nam, videoFile, &videoFileInfo, videoMimeType]() {
+      [this, homePageResp, nam, videoFile, videoFileInfo, videoMimeType]() {
         if (homePageResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, homePageResp->errorString());
           return;
