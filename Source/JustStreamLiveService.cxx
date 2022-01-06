@@ -20,7 +20,7 @@ void JustStreamLive::uploadVideo(QFile *videoFile) {
   QString videoMimeType =
       mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
 
-  if (QStringList{"video/mp4", "video/webm", "video/x-matroska"}.contains(
+  if (!QStringList{"video/mp4", "video/webm", "video/x-matroska"}.contains(
           videoMimeType)) {
     emit this->videoUploadError(
         videoFile,
@@ -48,7 +48,7 @@ void JustStreamLive::uploadVideo(QFile *videoFile) {
   videoFile->setParent(uploadMultiPart);
   uploadMultiPart->append(videoFilePart);
 
-  QNetworkReply *resp = this->m_nam->post(
+  QNetworkReply *resp = m_nam->post(
       QNetworkRequest(QUrl(apiUrl + "/videos/upload")), uploadMultiPart);
 
   connect(resp, &QNetworkReply::uploadProgress, this,

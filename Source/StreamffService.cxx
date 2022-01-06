@@ -16,7 +16,7 @@ void Streamff::uploadVideo(QFile *videoFile) {
   QString videoMimeType =
       mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
 
-  if (videoMimeType == "video/mp4") {
+  if (videoMimeType != "video/mp4") {
     emit this->videoUploadError(
         videoFile, "Unsupported file type! Streamff accepts MP4 only!");
     return;
@@ -31,10 +31,11 @@ void Streamff::uploadVideo(QFile *videoFile) {
   QNetworkReply *generateResp =
       m_nam->post(QNetworkRequest(QUrl(baseUrl + "/api/videos/generate-link")),
                   QByteArray());
+  QNetworkAccessManager *nam = m_nam;
 
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, generateResp, videoFile, &videoFileInfo, videoMimeType]() {
+      [this, generateResp, nam, videoFile, &videoFileInfo, videoMimeType]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, generateResp->errorString());
           return;
@@ -56,7 +57,7 @@ void Streamff::uploadVideo(QFile *videoFile) {
         videoFile->setParent(uploadMultiPart);
         uploadMultiPart->append(videoFilePart);
 
-        QNetworkReply *uploadResp = this->m_nam->post(
+        QNetworkReply *uploadResp = nam->post(
             QNetworkRequest(QUrl(baseUrl + "/api/videos/upload/" + videoId)),
             uploadMultiPart);
         connect(uploadResp, &QNetworkReply::uploadProgress, this,

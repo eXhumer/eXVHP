@@ -14,7 +14,6 @@ private:
   QNetworkAccessManager *m_nam;
   static QString baseUrl;
   static QRegularExpression linkIdRegex;
-  static QRegularExpression videoLinkRegex;
   static QString parseLinkId(QString homePageData);
 
 public:

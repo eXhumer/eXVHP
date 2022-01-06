@@ -10,8 +10,6 @@ QString Streamwo::baseUrl = "https://streamwo.com";
 QRegularExpression
     Streamwo::linkIdRegex("<input type=\"hidden\" name=\"link_id\" "
                           "id=\"link_id\" value=\"(?<linkId>[^\"]*)\" />");
-QRegularExpression Streamwo::videoLinkRegex(
-    "<source src=\"(?<videoLink>[^\"]*)\" type=\"video/mp4\">");
 
 Streamwo::Streamwo(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam) {}
@@ -41,11 +39,12 @@ void Streamwo::uploadVideo(QFile *videoFile) {
     return;
   }
 
-  QNetworkReply *homePageResp = m_nam->get(QNetworkRequest(QUrl(baseUrl)));
+  QNetworkAccessManager *nam = m_nam;
+  QNetworkReply *homePageResp = nam->get(QNetworkRequest(QUrl(baseUrl)));
 
   connect(
       homePageResp, &QNetworkReply::finished, this,
-      [this, homePageResp, videoFile, &videoFileInfo, videoMimeType]() {
+      [this, homePageResp, nam, videoFile, &videoFileInfo, videoMimeType]() {
         if (homePageResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, homePageResp->errorString());
           return;
@@ -74,9 +73,9 @@ void Streamwo::uploadVideo(QFile *videoFile) {
         linkIdPart.setBody(linkId.toUtf8());
         uploadMultiPart->append(linkIdPart);
 
-        QNetworkReply *uploadResp = this->m_nam->post(
-            QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
-            uploadMultiPart);
+        QNetworkReply *uploadResp =
+            nam->post(QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
+                      uploadMultiPart);
 
         connect(uploadResp, &QNetworkReply::uploadProgress, this,
                 [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
