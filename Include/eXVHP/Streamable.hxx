@@ -3,8 +3,6 @@
 
 #include <QFile>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QString>
 
 namespace eXVHP::Service {
 class Streamable : public QObject {

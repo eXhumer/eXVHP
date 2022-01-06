@@ -3,7 +3,6 @@
 
 #include <QFile>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
 
 namespace eXVHP::Service {
 class Streamff : public QObject {

@@ -2,8 +2,7 @@
 #include <QFileInfo>
 #include <QHttpMultiPart>
 #include <QMimeDatabase>
-#include <QMimeType>
-#include <QRegularExpressionMatch>
+#include <QNetworkReply>
 
 namespace eXVHP::Service {
 QString Mixture::baseUrl = "https://mixture.gg";

@@ -4,7 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMimeDatabase>
-#include <QNetworkRequest>
+#include <QNetworkReply>
 #include <QUrlQuery>
 
 namespace eXVHP::Service {

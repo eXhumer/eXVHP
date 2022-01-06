@@ -3,7 +3,6 @@
 
 #include <QFile>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
 #include <QRegularExpression>
 
 namespace eXVHP::Service {

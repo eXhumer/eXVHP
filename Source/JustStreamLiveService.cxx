@@ -1,11 +1,10 @@
 #include "JustStreamLive.hxx"
-#include <QFile>
 #include <QFileInfo>
 #include <QHttpMultiPart>
-#include <QHttpPart>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMimeDatabase>
+#include <QNetworkReply>
 
 namespace eXVHP::Service {
 QString JustStreamLive::apiUrl = "https://api.juststream.live";

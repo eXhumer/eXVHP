@@ -1,13 +1,10 @@
 #include "Streamable.hxx"
-#include <QCryptographicHash>
-#include <QDate>
-#include <QDateTime>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageAuthenticationCode>
 #include <QMimeDatabase>
-#include <QMimeType>
+#include <QNetworkReply>
 #include <QUrlQuery>
 
 namespace eXVHP::Service {

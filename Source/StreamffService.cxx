@@ -2,7 +2,7 @@
 #include <QFileInfo>
 #include <QHttpMultiPart>
 #include <QMimeDatabase>
-#include <QMimeType>
+#include <QNetworkReply>
 
 namespace eXVHP::Service {
 QString Streamff::baseUrl = "https://streamff.com";
