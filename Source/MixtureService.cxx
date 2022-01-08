@@ -21,10 +21,8 @@ QString Mixture::parseLinkId(QString homePageData) {
 }
 
 void Mixture::uploadVideo(QFile *videoFile) {
-  QFileInfo videoFileInfo(*videoFile);
-  QMimeDatabase mimeDb;
-  QString videoMimeType =
-      mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
 
   if (videoMimeType != "video/mp4") {
     emit this->videoUploadError(
@@ -39,10 +37,9 @@ void Mixture::uploadVideo(QFile *videoFile) {
   }
 
   QNetworkReply *homePageResp = m_nam->get(QNetworkRequest(QUrl(baseUrl)));
-  QNetworkAccessManager *nam = m_nam;
 
   connect(homePageResp, &QNetworkReply::finished, this,
-          [this, homePageResp, nam, videoFile, videoFileInfo, videoMimeType]() {
+          [this, homePageResp, videoFile, videoFileName, videoMimeType]() {
             if (homePageResp->error() != QNetworkReply::NoError) {
               emit this->videoUploadError(videoFile,
                                           homePageResp->errorString());
@@ -60,7 +57,7 @@ void Mixture::uploadVideo(QFile *videoFile) {
             videoFilePart.setHeader(
                 QNetworkRequest::ContentDispositionHeader,
                 QVariant("form-data; name=\"upload_file\"; filename=\"" +
-                         videoFileInfo.fileName() + "\""));
+                         videoFileName + "\""));
             videoFile->open(QIODevice::ReadOnly);
             videoFilePart.setBodyDevice(videoFile);
             videoFile->setParent(uploadMultiPart);
@@ -73,8 +70,8 @@ void Mixture::uploadVideo(QFile *videoFile) {
             uploadMultiPart->append(linkIdPart);
 
             QNetworkReply *uploadResp =
-                nam->post(QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
-                          uploadMultiPart);
+                m_nam->post(QNetworkRequest(QUrl(baseUrl + "/upload_file.php")),
+                            uploadMultiPart);
 
             connect(uploadResp, &QNetworkReply::uploadProgress, this,
                     [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {

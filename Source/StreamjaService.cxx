@@ -14,10 +14,8 @@ Streamja::Streamja(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam) {}
 
 void Streamja::uploadVideo(QFile *videoFile) {
-  QFileInfo videoFileInfo(*videoFile);
-  QMimeDatabase mimeDb;
-  QString videoMimeType =
-      mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
 
   if (videoMimeType != "video/mp4") {
     emit this->videoUploadError(
@@ -41,7 +39,7 @@ void Streamja::uploadVideo(QFile *videoFile) {
                 QUrlQuery{{"new", "1"}}.toString(QUrl::FullyEncoded).toUtf8());
 
   connect(generateResp, &QNetworkReply::finished, this,
-          [this, generateResp, nam, videoFile, videoFileInfo, videoMimeType]() {
+          [this, generateResp, nam, videoFile, videoFileName, videoMimeType]() {
             if (generateResp->error() != QNetworkReply::NoError) {
               emit this->videoUploadError(videoFile,
                                           generateResp->errorString());
@@ -61,7 +59,7 @@ void Streamja::uploadVideo(QFile *videoFile) {
             videoFilePart.setHeader(
                 QNetworkRequest::ContentDispositionHeader,
                 QVariant("form-data; name=\"file\"; filename=\"" +
-                         videoFileInfo.fileName() + "\""));
+                         videoFileName + "\""));
             videoFile->open(QIODevice::ReadOnly);
             videoFilePart.setBodyDevice(videoFile);
             videoFile->setParent(uploadMultiPart);

@@ -17,10 +17,8 @@ Streamable::Streamable(QNetworkAccessManager *nam, QObject *parent)
 
 void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
                              const QString &awsRegion) {
-  QFileInfo videoFileInfo(*videoFile);
-  QMimeDatabase mimeDb;
-  QString videoMimeType =
-      mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
 
   if (!QStringList{"video/mp4", "video/x-matroska"}.contains(videoMimeType)) {
     emit this->videoUploadError(
@@ -42,7 +40,7 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
   QNetworkReply *generateResp = nam->get(QNetworkRequest(shortcodeUrl));
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, awsRegion, generateResp, nam, videoFile, videoFileInfo,
+      [this, awsRegion, generateResp, nam, videoFile, videoFileName,
        videoTitle]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, generateResp->errorString());
@@ -65,10 +63,11 @@ void Streamable::uploadVideo(QFile *videoFile, const QString &videoTitle,
         QUrl updateMetaUrl(apiUrl + "/videos/" + shortCode);
         updateMetaUrl.setQuery(QUrlQuery{{"purge", ""}});
         QJsonObject videoMetaJson;
-        videoMetaJson["original_name"] = videoFileInfo.fileName();
+        videoMetaJson["original_name"] = videoFileName;
         videoMetaJson["original_size"] = videoFile->size();
-        videoMetaJson["title"] =
-            videoTitle.isEmpty() ? videoFileInfo.baseName() : videoTitle;
+        videoMetaJson["title"] = videoTitle.isEmpty()
+                                     ? QFileInfo(*videoFile).baseName()
+                                     : videoTitle;
         videoMetaJson["upload_source"] = "web";
         QNetworkRequest updateMetaReq(updateMetaUrl);
         updateMetaReq.setHeader(QNetworkRequest::ContentTypeHeader,

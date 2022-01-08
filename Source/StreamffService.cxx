@@ -11,10 +11,8 @@ Streamff::Streamff(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam) {}
 
 void Streamff::uploadVideo(QFile *videoFile) {
-  QFileInfo videoFileInfo(*videoFile);
-  QMimeDatabase mimeDb;
-  QString videoMimeType =
-      mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
 
   if (videoMimeType != "video/mp4") {
     emit this->videoUploadError(
@@ -35,7 +33,7 @@ void Streamff::uploadVideo(QFile *videoFile) {
 
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, generateResp, nam, videoFile, videoFileInfo, videoMimeType]() {
+      [this, generateResp, nam, videoFile, videoFileName, videoMimeType]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->videoUploadError(videoFile, generateResp->errorString());
           return;
@@ -50,8 +48,8 @@ void Streamff::uploadVideo(QFile *videoFile) {
                                 QVariant(videoMimeType));
         videoFilePart.setHeader(
             QNetworkRequest::ContentDispositionHeader,
-            QVariant("form-data; name=\"file\"; filename=\"" +
-                     videoFileInfo.fileName() + "\""));
+            QVariant("form-data; name=\"file\"; filename=\"" + videoFileName +
+                     "\""));
         videoFile->open(QIODevice::ReadOnly);
         videoFilePart.setBodyDevice(videoFile);
         videoFile->setParent(uploadMultiPart);

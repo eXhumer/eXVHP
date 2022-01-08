@@ -14,10 +14,8 @@ JustStreamLive::JustStreamLive(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam) {}
 
 void JustStreamLive::uploadVideo(QFile *videoFile) {
-  QFileInfo videoFileInfo(*videoFile);
-  QMimeDatabase mimeDb;
-  QString videoMimeType =
-      mimeDb.mimeTypeForFile(videoFileInfo.fileName()).name();
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
 
   if (!QStringList{"video/mp4", "video/webm", "video/x-matroska"}.contains(
           videoMimeType)) {
@@ -39,9 +37,9 @@ void JustStreamLive::uploadVideo(QFile *videoFile) {
   QHttpPart videoFilePart;
   videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
                           QVariant(videoMimeType));
-  videoFilePart.setHeader(QNetworkRequest::ContentDispositionHeader,
-                          QVariant("form-data; name=\"file\"; filename=\"" +
-                                   videoFileInfo.fileName() + "\""));
+  videoFilePart.setHeader(
+      QNetworkRequest::ContentDispositionHeader,
+      QVariant("form-data; name=\"file\"; filename=\"" + videoFileName + "\""));
   videoFile->open(QIODevice::ReadOnly);
   videoFilePart.setBodyDevice(videoFile);
   videoFile->setParent(uploadMultiPart);
