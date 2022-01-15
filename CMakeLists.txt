@@ -3,30 +3,20 @@ cmake_minimum_required(VERSION 3.22)
 project(
 eXVHP
     LANGUAGES CXX
-    VERSION 1.0.0
+    VERSION 2.0.0
 )
 
 find_package(Qt6 COMPONENTS Core Network REQUIRED)
 
 qt_wrap_cpp(
 LIB_MOC
-    Include/${PROJECT_NAME}/JustStreamLive.hxx
-    Include/${PROJECT_NAME}/Mixture.hxx
-    Include/${PROJECT_NAME}/Streamable.hxx
-    Include/${PROJECT_NAME}/Streamff.hxx
-    Include/${PROJECT_NAME}/Streamja.hxx
-    Include/${PROJECT_NAME}/Streamwo.hxx
+    Include/${PROJECT_NAME}/Service.hxx
 )
 
 add_library(
 ${PROJECT_NAME}
     ${LIB_MOC}
-    Source/JustStreamLiveService.cxx
-    Source/MixtureService.cxx
-    Source/StreamableService.cxx
-    Source/StreamffService.cxx
-    Source/StreamjaService.cxx
-    Source/StreamwoService.cxx
+    Source/MediaService.cxx
 )
 
 target_link_libraries(
