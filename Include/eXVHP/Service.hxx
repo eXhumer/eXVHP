@@ -30,28 +30,26 @@ private:
   QNetworkAccessManager *m_nam;
   static QString jslApiUrl;
   static QString jslBaseUrl;
-  static QString mixBaseUrl;
-  static QRegularExpression mixSwolinkIdRegex;
-  static QString mixSwoParseLinkId(QString homePageData);
+  static QRegularExpression sgglinkIdRegex;
+  static QString sggParseLinkId(QString homePageData);
   static QString sabApiUrl;
   static QString sabAwsUrl;
   static QString sabBaseUrl;
   static QString sabReactVersion;
   static QString sffBaseUrl;
+  static QString sggBaseUrl;
   static QString sjaBaseUrl;
-  static QString swoBaseUrl;
 
 public:
   MediaService(QNetworkAccessManager *nam = nullptr, QObject *parent = nullptr);
 
 public slots:
   void uploadJustStreamLive(QFile *videoFile);
-  void uploadMixture(QFile *videoFile);
   void uploadStreamable(QFile *videoFile, const QString &videoTitle,
                         const QString &awsRegion);
   void uploadStreamff(QFile *videoFile);
+  void uploadStreamgg(QFile *videoFile);
   void uploadStreamja(QFile *videoFile);
-  void uploadStreamwo(QFile *videoFile);
 
 signals:
   void mediaUploaded(QFile *videoFile, const QString &videoId,
