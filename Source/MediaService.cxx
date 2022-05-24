@@ -126,17 +126,14 @@ void MediaService::uploadStreamable(QFile *videoFile, const QString &videoTitle,
     return;
   }
 
-  QNetworkAccessManager *nam = m_nam;
-
   QUrl shortcodeUrl(sabApiUrl + "/shortcode");
   shortcodeUrl.setQuery(
       QUrlQuery{{"version", sabReactVersion},
                 {"size", QString::number(videoFile->size())}});
-  QNetworkReply *generateResp = nam->get(QNetworkRequest(shortcodeUrl));
+  QNetworkReply *generateResp = m_nam->get(QNetworkRequest(shortcodeUrl));
   connect(
       generateResp, &QNetworkReply::finished, this,
-      [this, awsRegion, generateResp, nam, videoFile, videoFileName,
-       videoTitle]() {
+      [this, awsRegion, generateResp, videoFile, videoFileName, videoTitle]() {
         if (generateResp->error() != QNetworkReply::NoError) {
           emit this->mediaUploadError(videoFile, generateResp->errorString());
           return;
@@ -167,12 +164,12 @@ void MediaService::uploadStreamable(QFile *videoFile, const QString &videoTitle,
         QNetworkRequest updateMetaReq(updateMetaUrl);
         updateMetaReq.setHeader(QNetworkRequest::ContentTypeHeader,
                                 "application/json");
-        QNetworkReply *updateMetaResp = nam->put(
+        QNetworkReply *updateMetaResp = m_nam->put(
             updateMetaReq,
             QJsonDocument(videoMetaJson).toJson(QJsonDocument::Compact));
         connect(
             updateMetaResp, &QNetworkReply::finished, this,
-            [this, accessKeyId, awsRegion, nam, secretAccessKey, sessionToken,
+            [this, accessKeyId, awsRegion, secretAccessKey, sessionToken,
              shortCode, transcoderToken, updateMetaResp, videoFile]() {
               if (updateMetaResp->error() != QNetworkReply::NoError) {
                 emit this->mediaUploadError(videoFile,
@@ -270,7 +267,7 @@ void MediaService::uploadStreamable(QFile *videoFile, const QString &videoTitle,
 
               uploadReq.setRawHeader("Authorization", authorization.toUtf8());
               videoFile->seek(0);
-              QNetworkReply *uploadResp = nam->put(uploadReq, videoFile);
+              QNetworkReply *uploadResp = m_nam->put(uploadReq, videoFile);
 
               connect(uploadResp, &QNetworkReply::uploadProgress, this,
                       [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
@@ -280,8 +277,7 @@ void MediaService::uploadStreamable(QFile *videoFile, const QString &videoTitle,
 
               connect(
                   uploadResp, &QNetworkReply::finished, this,
-                  [this, nam, shortCode, transcoderToken, uploadResp,
-                   videoFile]() {
+                  [this, shortCode, transcoderToken, uploadResp, videoFile]() {
                     if (uploadResp->error() != QNetworkReply::NoError) {
                       emit this->mediaUploadError(videoFile,
                                                   uploadResp->errorString());
@@ -293,7 +289,7 @@ void MediaService::uploadStreamable(QFile *videoFile, const QString &videoTitle,
                     transcodeReq.setHeader(QNetworkRequest::ContentTypeHeader,
                                            "application/json");
 
-                    QNetworkReply *transcodeResp = nam->post(
+                    QNetworkReply *transcodeResp = m_nam->post(
                         transcodeReq,
                         QJsonDocument(
                             QJsonObject{
