@@ -34,7 +34,6 @@ QString MediaService::sabBaseUrl = "https://streamable.com";
 QString MediaService::sabReactVersion =
     "03db98af3545197e67cb96893d9e9d8729eee743";
 QString MediaService::sffBaseUrl = "https://streamff.com";
-QString MediaService::sggBaseUrl = "https://streamgg.com";
 QString MediaService::sjaBaseUrl = "https://streamja.com";
 QRegularExpression MediaService::sgglinkIdRegex(
     "<input type=\"hidden\" name=\"link_id\" "
@@ -398,84 +397,6 @@ void MediaService::uploadStreamff(QFile *videoFile) {
                 &QNetworkReply::deleteLater);
       });
   connect(generateResp, &QNetworkReply::finished, generateResp,
-          &QNetworkReply::deleteLater);
-}
-
-void MediaService::uploadStreamgg(QFile *videoFile) {
-  QString videoFileName = QFileInfo(*videoFile).fileName();
-  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
-
-  if (videoMimeType != "video/mp4") {
-    emit this->mediaUploadError(
-        videoFile, "Unsupported file type! Mixture only accepts MP4!");
-    return;
-  }
-
-  if (videoFile->size() > 512 * 0x100000) {
-    emit this->mediaUploadError(
-        videoFile, "File too big! Mixture supports 512MB maximum!");
-    return;
-  }
-
-  QNetworkReply *homePageResp = m_nam->get(QNetworkRequest(QUrl(sggBaseUrl)));
-
-  connect(
-      homePageResp, &QNetworkReply::finished, this,
-      [this, homePageResp, videoFile, videoFileName, videoMimeType]() {
-        if (homePageResp->error() != QNetworkReply::NoError) {
-          emit this->mediaUploadError(videoFile, homePageResp->errorString());
-          return;
-        }
-
-        QString linkId = sggParseLinkId(QString(homePageResp->readAll()));
-
-        QHttpMultiPart *uploadMultiPart =
-            new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-        QHttpPart videoFilePart;
-        videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
-                                QVariant(videoMimeType));
-        videoFilePart.setHeader(
-            QNetworkRequest::ContentDispositionHeader,
-            QVariant("form-data; name=\"upload_file\"; filename=\"" +
-                     videoFileName + "\""));
-        videoFile->open(QIODevice::ReadOnly);
-        videoFilePart.setBodyDevice(videoFile);
-        videoFile->setParent(uploadMultiPart);
-        uploadMultiPart->append(videoFilePart);
-
-        QHttpPart linkIdPart;
-        linkIdPart.setHeader(QNetworkRequest::ContentDispositionHeader,
-                             QVariant("form-data; name=\"link_id\""));
-        linkIdPart.setBody(linkId.toUtf8());
-        uploadMultiPart->append(linkIdPart);
-
-        QNetworkReply *uploadResp =
-            m_nam->post(QNetworkRequest(QUrl(sggBaseUrl + "/upload_file.php")),
-                        uploadMultiPart);
-
-        connect(uploadResp, &QNetworkReply::uploadProgress, this,
-                [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
-                  emit this->mediaUploadProgress(videoFile, bytesSent,
-                                                 bytesTotal);
-                });
-        connect(uploadResp, &QNetworkReply::finished, this,
-                [this, linkId, uploadResp, videoFile]() {
-                  if (uploadResp->error() != QNetworkReply::NoError) {
-                    emit this->mediaUploadError(videoFile,
-                                                uploadResp->errorString());
-                    return;
-                  }
-
-                  emit this->mediaUploaded(videoFile, linkId,
-                                           sggBaseUrl + "/v/" + linkId);
-                });
-        connect(uploadResp, &QNetworkReply::finished, uploadMultiPart,
-                &QHttpMultiPart::deleteLater);
-        connect(uploadResp, &QNetworkReply::finished, uploadResp,
-                &QNetworkReply::deleteLater);
-      });
-  connect(homePageResp, &QNetworkReply::finished, homePageResp,
           &QNetworkReply::deleteLater);
 }
 

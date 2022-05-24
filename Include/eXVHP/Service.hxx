@@ -37,7 +37,6 @@ private:
   static QString sabBaseUrl;
   static QString sabReactVersion;
   static QString sffBaseUrl;
-  static QString sggBaseUrl;
   static QString sjaBaseUrl;
 
 public:
@@ -48,7 +47,6 @@ public slots:
   void uploadStreamable(QFile *videoFile, const QString &videoTitle,
                         const QString &awsRegion);
   void uploadStreamff(QFile *videoFile);
-  void uploadStreamgg(QFile *videoFile);
   void uploadStreamja(QFile *videoFile);
 
 signals:
