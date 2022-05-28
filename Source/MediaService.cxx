@@ -18,14 +18,19 @@
 #include "Service.hxx"
 #include <QFileInfo>
 #include <QHttpMultiPart>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageAuthenticationCode>
 #include <QMimeDatabase>
 #include <QNetworkReply>
+#include <QTimer>
 #include <QUrlQuery>
 
 namespace eXVHP::Service {
+QString MediaService::imgurApiUrl = "https://api.imgur.com";
+QString MediaService::imgurBaseUrl = "https://imgur.com";
+QString MediaService::imgurClientId = "546c25a59c58ad7";
 QString MediaService::jslApiUrl = "https://api.juststream.live";
 QString MediaService::jslBaseUrl = "https://juststream.live";
 QString MediaService::sabApiUrl = "https://ajax.streamable.com";
@@ -35,16 +40,6 @@ QString MediaService::sabReactVersion =
     "03db98af3545197e67cb96893d9e9d8729eee743";
 QString MediaService::sffBaseUrl = "https://streamff.com";
 QString MediaService::sjaBaseUrl = "https://streamja.com";
-QRegularExpression MediaService::sgglinkIdRegex(
-    "<input type=\"hidden\" name=\"link_id\" "
-    "id=\"link_id\" value=\"(?<linkId>[^\"]*)\" />");
-
-QString MediaService::sggParseLinkId(QString homePageData) {
-  QRegularExpressionMatch linkIdRegexMatch = sgglinkIdRegex.match(homePageData);
-
-  return linkIdRegexMatch.hasMatch() ? linkIdRegexMatch.captured("linkId")
-                                     : QString();
-}
 
 MediaService::MediaService(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent) {
@@ -52,6 +47,155 @@ MediaService::MediaService(QNetworkAccessManager *nam, QObject *parent)
     nam = new QNetworkAccessManager(this);
 
   m_nam = nam;
+}
+
+void MediaService::uploadImgur(QFile *videoFile, const QString &videoTitle) {
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
+
+  if (!QStringList{"video/mp4", "video/x-matroska"}.contains(videoMimeType)) {
+    emit this->mediaUploadError(
+        videoFile, "Unsupported file type! Imgur accepts MKV/MP4!");
+    return;
+  }
+
+  if (videoFile->size() > 50 * 0x100000) {
+    emit this->mediaUploadError(videoFile,
+                                "File too big! Imgur supports 200MB maximum!");
+    return;
+  }
+
+  QUrl reqUrl(imgurApiUrl + "/3/upload/checkcaptcha");
+  reqUrl.setQuery("client_id=" + imgurClientId);
+  auto resp = m_nam->post(
+      QNetworkRequest(reqUrl),
+      QJsonDocument(QJsonObject({{"g-recaptcha-response", QJsonValue()},
+                                 {"total_upload", 1}}))
+          .toJson(QJsonDocument::Compact));
+  connect(
+      resp, &QNetworkReply::finished, this,
+      [this, resp, videoFile, videoFileName, videoMimeType, videoTitle]() {
+        if (resp->error() != QNetworkReply::NoError) {
+          emit this->mediaUploadError(videoFile, resp->errorString());
+          return;
+        }
+
+        QHttpMultiPart *uploadMultiPart =
+            new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+        QHttpPart videoFilePart;
+        videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
+                                QVariant(videoMimeType));
+        videoFilePart.setHeader(
+            QNetworkRequest::ContentDispositionHeader,
+            QVariant("form-data; name=\"video\"; filename=\"" + videoFileName +
+                     "\""));
+        videoFile->open(QIODevice::ReadOnly);
+        videoFilePart.setBodyDevice(videoFile);
+        videoFile->setParent(uploadMultiPart);
+        uploadMultiPart->append(videoFilePart);
+
+        QUrl reqUrl(imgurApiUrl + "/3/image");
+        reqUrl.setQuery("client_id=" + imgurClientId);
+        auto uploadResp = m_nam->post(QNetworkRequest(reqUrl), uploadMultiPart);
+        connect(uploadResp, &QNetworkReply::uploadProgress, this,
+                [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
+                  emit this->mediaUploadProgress(videoFile, bytesSent,
+                                                 bytesTotal);
+                });
+        connect(
+            uploadResp, &QNetworkReply::finished, this,
+            [this, uploadResp, videoFile, videoTitle]() {
+              if (uploadResp->error() != QNetworkReply::NoError) {
+                emit this->mediaUploadError(videoFile,
+                                            uploadResp->errorString());
+                return;
+              }
+
+              QString uploadTicket =
+                  QJsonDocument::fromJson(uploadResp->readAll())
+                      .object()["data"]
+                      .toObject()["ticket"]
+                      .toString();
+
+              QTimer *timer = new QTimer;
+              connect(
+                  timer, &QTimer::timeout, this,
+                  [this, timer, uploadTicket, videoFile, videoTitle]() {
+                    qDebug() << "test";
+                    QUrl reqUrl(imgurBaseUrl + "/upload/poll");
+                    reqUrl.setQuery(QUrlQuery({{"client_id", imgurClientId},
+                                               {"tickets[]", uploadTicket}}));
+                    auto pollResp = m_nam->get(QNetworkRequest(reqUrl));
+                    connect(
+                        pollResp, &QNetworkReply::finished, this,
+                        [this, timer, pollResp, uploadTicket, videoFile,
+                         videoTitle]() {
+                          qDebug() << "test2";
+                          if (pollResp->error() != QNetworkReply::NoError) {
+                            emit this->mediaUploadError(
+                                videoFile, pollResp->errorString());
+                            return;
+                          }
+
+                          auto dataValue =
+                              QJsonDocument::fromJson(pollResp->readAll())
+                                  .object()["data"]
+                                  .toObject();
+                          qDebug() << dataValue;
+
+                          auto doneValue = dataValue["done"];
+                          auto doneEmpty = doneValue.isArray();
+
+                          if (doneValue.isObject()) {
+                            auto videoId =
+                                doneValue.toObject()[uploadTicket].toString();
+                            auto videoDeletehash = dataValue["images"]
+                                                       .toObject()[videoId]
+                                                       .toObject()["deletehash"]
+                                                       .toString();
+                            timer->stop();
+                            timer->deleteLater();
+                            QUrl reqUrl(imgurApiUrl + "/3/image/" +
+                                        videoDeletehash);
+                            reqUrl.setQuery("client_id=" + imgurClientId);
+                            auto updateTitleResp = m_nam->post(
+                                QNetworkRequest(reqUrl),
+                                QJsonDocument(
+                                    QJsonObject({{"title", videoTitle}}))
+                                    .toJson(QJsonDocument::Compact));
+                            connect(
+                                updateTitleResp, &QNetworkReply::finished, this,
+                                [this, updateTitleResp, videoFile, videoId]() {
+                                  if (updateTitleResp->error() !=
+                                      QNetworkReply::NoError) {
+                                    emit this->mediaUploadError(
+                                        videoFile,
+                                        updateTitleResp->errorString());
+                                    return;
+                                  }
+
+                                  emit this->mediaUploaded(videoFile, videoId,
+                                                           imgurBaseUrl + "/" +
+                                                               videoId);
+                                });
+                            connect(updateTitleResp, &QNetworkReply::finished,
+                                    updateTitleResp,
+                                    &QNetworkReply::deleteLater);
+                          }
+                        });
+                    connect(pollResp, &QNetworkReply::finished, pollResp,
+                            &QNetworkReply::deleteLater);
+                  });
+              timer->start(5000);
+            });
+
+        connect(uploadResp, &QNetworkReply::finished, uploadMultiPart,
+                &QHttpMultiPart::deleteLater);
+        connect(uploadResp, &QNetworkReply::finished, uploadResp,
+                &QNetworkReply::deleteLater);
+      });
+  connect(resp, &QNetworkReply::finished, resp, &QNetworkReply::deleteLater);
 }
 
 void MediaService::uploadJustStreamLive(QFile *videoFile) {

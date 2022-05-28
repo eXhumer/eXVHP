@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 project(
 eXVHP
     LANGUAGES CXX
-    VERSION 2.3.0
+    VERSION 2.4.0
 )
 
 find_package(Qt6 COMPONENTS Core Network REQUIRED)

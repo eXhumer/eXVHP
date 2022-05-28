@@ -28,10 +28,11 @@ class MediaService : public QObject {
 
 private:
   QNetworkAccessManager *m_nam;
+  static QString imgurApiUrl;
+  static QString imgurBaseUrl;
+  static QString imgurClientId;
   static QString jslApiUrl;
   static QString jslBaseUrl;
-  static QRegularExpression sgglinkIdRegex;
-  static QString sggParseLinkId(QString homePageData);
   static QString sabApiUrl;
   static QString sabAwsUrl;
   static QString sabBaseUrl;
@@ -43,6 +44,7 @@ public:
   MediaService(QNetworkAccessManager *nam = nullptr, QObject *parent = nullptr);
 
 public slots:
+  void uploadImgur(QFile *videoFile, const QString &videoTitle);
   void uploadJustStreamLive(QFile *videoFile);
   void uploadStreamable(QFile *videoFile, const QString &videoTitle,
                         const QString &awsRegion);
