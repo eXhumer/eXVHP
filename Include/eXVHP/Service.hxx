@@ -28,6 +28,9 @@ class MediaService : public QObject {
 
 private:
   QNetworkAccessManager *m_nam;
+  static QRegularExpression dubzlinkIdRegex;
+  static QString dubzParseLinkId(const QString &homePageData);
+  static QString dubzUrl;
   static QString imgurApiUrl;
   static QString imgurBaseUrl;
   static QString imgurClientId;
@@ -44,6 +47,7 @@ public:
   MediaService(QNetworkAccessManager *nam = nullptr, QObject *parent = nullptr);
 
 public slots:
+  void uploadDubz(QFile *videoFile, const QString &videoTitle);
   void uploadImgur(QFile *videoFile, const QString &videoTitle);
   void uploadJustStreamLive(QFile *videoFile);
   void uploadStreamable(QFile *videoFile, const QString &videoTitle,

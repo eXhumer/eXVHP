@@ -28,6 +28,7 @@
 #include <QUrlQuery>
 
 namespace eXVHP::Service {
+QString MediaService::dubzUrl = "https://dubz.co";
 QString MediaService::imgurApiUrl = "https://api.imgur.com";
 QString MediaService::imgurBaseUrl = "https://imgur.com";
 QString MediaService::imgurClientId = "546c25a59c58ad7";
@@ -40,6 +41,17 @@ QString MediaService::sabReactVersion =
     "03db98af3545197e67cb96893d9e9d8729eee743";
 QString MediaService::sffBaseUrl = "https://streamff.com";
 QString MediaService::sjaBaseUrl = "https://streamja.com";
+QRegularExpression MediaService::dubzlinkIdRegex(
+    "<input type=\"hidden\" name=\"link_id\" "
+    "id=\"link_id\" value=\"(?<linkId>[^\"]*)\" />");
+
+QString MediaService::dubzParseLinkId(const QString &homePageData) {
+  QRegularExpressionMatch linkIdRegexMatch =
+      dubzlinkIdRegex.match(homePageData);
+
+  return linkIdRegexMatch.hasMatch() ? linkIdRegexMatch.captured("linkId")
+                                     : QString();
+}
 
 MediaService::MediaService(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent) {
@@ -47,6 +59,78 @@ MediaService::MediaService(QNetworkAccessManager *nam, QObject *parent)
     nam = new QNetworkAccessManager(this);
 
   m_nam = nam;
+}
+
+void MediaService::uploadDubz(QFile *videoFile, const QString &videoTitle) {
+  QString videoFileName = QFileInfo(*videoFile).fileName();
+  QString videoMimeType = QMimeDatabase().mimeTypeForFile(videoFileName).name();
+
+  if (videoMimeType != "video/mp4") {
+    emit this->mediaUploadError(
+        videoFile, "Unsupported file type! Dubz only supports MP4!");
+    return;
+  }
+
+  QNetworkReply *homePageResp = m_nam->get(QNetworkRequest(QUrl(dubzUrl)));
+
+  connect(homePageResp, &QNetworkReply::finished, this,
+          [this, homePageResp, videoFile, videoFileName, videoMimeType]() {
+            if (homePageResp->error() != QNetworkReply::NoError) {
+              emit this->mediaUploadError(videoFile,
+                                          homePageResp->errorString());
+              return;
+            }
+
+            QString linkId = dubzParseLinkId(QString(homePageResp->readAll()));
+
+            QHttpMultiPart *uploadMultiPart =
+                new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+            QHttpPart videoFilePart;
+            videoFilePart.setHeader(QNetworkRequest::ContentTypeHeader,
+                                    QVariant(videoMimeType));
+            videoFilePart.setHeader(
+                QNetworkRequest::ContentDispositionHeader,
+                QVariant("form-data; name=\"upload_file\"; filename=\"" +
+                         videoFileName + "\""));
+            videoFile->open(QIODevice::ReadOnly);
+            videoFilePart.setBodyDevice(videoFile);
+            videoFile->setParent(uploadMultiPart);
+            uploadMultiPart->append(videoFilePart);
+
+            QHttpPart linkIdPart;
+            linkIdPart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                                 QVariant("form-data; name=\"link_id\""));
+            linkIdPart.setBody(linkId.toUtf8());
+            uploadMultiPart->append(linkIdPart);
+
+            QNetworkReply *uploadResp =
+                m_nam->post(QNetworkRequest(QUrl(dubzUrl + "/upload_file.php")),
+                            uploadMultiPart);
+
+            connect(uploadResp, &QNetworkReply::uploadProgress, this,
+                    [this, videoFile](qint64 bytesSent, qint64 bytesTotal) {
+                      emit this->mediaUploadProgress(videoFile, bytesSent,
+                                                     bytesTotal);
+                    });
+            connect(uploadResp, &QNetworkReply::finished, this,
+                    [this, linkId, uploadResp, videoFile]() {
+                      if (uploadResp->error() != QNetworkReply::NoError) {
+                        emit this->mediaUploadError(videoFile,
+                                                    uploadResp->errorString());
+                        return;
+                      }
+
+                      emit this->mediaUploaded(videoFile, linkId,
+                                               dubzUrl + "/v/" + linkId);
+                    });
+            connect(uploadResp, &QNetworkReply::finished, uploadMultiPart,
+                    &QHttpMultiPart::deleteLater);
+            connect(uploadResp, &QNetworkReply::finished, uploadResp,
+                    &QNetworkReply::deleteLater);
+          });
+  connect(homePageResp, &QNetworkReply::finished, homePageResp,
+          &QNetworkReply::deleteLater);
 }
 
 void MediaService::uploadImgur(QFile *videoFile, const QString &videoTitle) {
